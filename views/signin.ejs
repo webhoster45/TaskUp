@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In | TaskUp</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <main class="shell auth-shell">
+        <section class="auth-card">
+            <p class="eyebrow">TaskUp</p>
+            <h1>Welcome back.</h1>
+            <p class="hero-copy">Sign in to continue managing your tasks.</p>
+            <form id="signin-form" class="stack-form">
+                <label>
+                    <span>Username</span>
+                    <input type="text" id="username" autocomplete="username" placeholder="Enter your username">
+                </label>
+                <label>
+                    <span>Password</span>
+                    <input type="password" id="password" autocomplete="current-password" placeholder="Enter your password">
+                </label>
+                <button type="submit" class="button button-primary full-width">Sign in</button>
+            </form>
+            <p class="muted-copy">New to TaskUp? <a href="/signup">Create an account</a></p>
+        </section>
+    </main>
+
+    <script>
+        document.getElementById('signin-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                alert('Username and password must not be empty.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/signin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message || 'Unable to sign in');
+                }
+
+                sessionStorage.setItem('JWT_TOKEN', data.token);
+                sessionStorage.setItem('TASKUP_USERNAME', data.username || username);
+                document.cookie = `TASKUP_TOKEN=${encodeURIComponent(data.token)}; path=/; SameSite=Lax`;
+                document.cookie = `TASKUP_USERNAME=${encodeURIComponent(data.username || username)}; path=/; SameSite=Lax`;
+                window.location.href = '/dashboard';
+            } catch (error) {
+                alert(error.message || 'Unable to connect to the server.');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | TaskUp</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <main class="shell dashboard-shell">
+        <header class="dashboard-topbar">
+            <div>
+                <p class="eyebrow">TaskUp</p>
+                <h1 id="welcome-title">Dashboard</h1>
+                <p class="hero-copy">Manage tasks with a clean, minimal interface.</p>
+            </div>
+            <div class="button-row">
+                <button type="button" class="button button-secondary" id="refresh-button">Refresh</button>
+                <button type="button" class="button button-secondary" id="logout-button">Sign out</button>
+            </div>
+        </header>
+
+        <section class="dashboard-grid">
+            <article class="panel stats-panel">
+                <h2>Overview</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-label">All tasks</span>
+                        <strong id="stat-total">0</strong>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Open</span>
+                        <strong id="stat-open">0</strong>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Done</span>
+                        <strong id="stat-done">0</strong>
+                    </div>
+                </div>
+            </article>
+
+            <article class="panel form-panel">
+                <h2>Add task</h2>
+                <form id="task-form" class="stack-form">
+                    <label>
+                        <span>Title</span>
+                        <input type="text" id="task-title" maxlength="80" placeholder="Task title">
+                    </label>
+                    <label>
+                        <span>Description</span>
+                        <textarea id="task-description" rows="4" maxlength="500" placeholder="Task details"></textarea>
+                    </label>
+                    <button type="submit" class="button button-primary full-width">Add task</button>
+                </form>
+            </article>
+        </section>
+
+        <section class="panel list-panel">
+            <div class="list-header">
+                <h2>Your tasks</h2>
+                <p class="muted-copy" id="task-status">Loading tasks...</p>
+            </div>
+            <div id="task-list" class="task-list">
+                <% if (authenticated && tasks.length) { %>
+                    <% tasks.forEach((task) => { %>
+                        <article class="task-card <%= task.completed ? 'task-done' : '' %>">
+                            <div class="task-card-head">
+                                <div>
+                                    <p class="task-badge"><%= task.completed ? 'Completed' : 'Open' %></p>
+                                    <h3><%= task.title || 'Untitled task' %></h3>
+                                </div>
+                                <span class="task-date"><%= formatDate(task.createdat) %></span>
+                            </div>
+                            <p class="task-description"><%= task.description || '' %></p>
+                            <div class="button-row">
+                                <button type="button" class="button button-secondary" onclick="markTask('<%= task.id %>')">Mark done</button>
+                                <button type="button" class="button button-secondary" onclick="editTask('<%= task.id %>')">Edit</button>
+                                <button type="button" class="button button-danger" onclick="deleteTask('<%= task.id %>')">Delete</button>
+                                <button type="button" class="button button-secondary" onclick="emailTask('<%= task.id %>')">Email</button>
+                            </div>
+                        </article>
+                    <% }) %>
+                <% } else if (authenticated) { %>
+                    <div class="empty-state"><p>Your task board is empty. Add your first task to get started.</p></div>
+                <% } else { %>
+                    <div class="empty-state"><p>You are not signed in.</p><a class="button button-primary" href="/signin">Go to sign in</a></div>
+                <% } %>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const initialTasks = <%- JSON.stringify(tasks || []) %>;
+        function getCookie(name) {
+            return document.cookie.split('; ').reduce((value, part) => {
+                if (part.startsWith(`${name}=`)) {
+                    return decodeURIComponent(part.slice(name.length + 1));
+                }
+                return value;
+            }, '');
+        }
+
+        const token = sessionStorage.getItem('JWT_TOKEN') || getCookie('TASKUP_TOKEN');
+        const username = sessionStorage.getItem('TASKUP_USERNAME') || getCookie('TASKUP_USERNAME');
+        const welcomeTitle = document.getElementById('welcome-title');
+        const taskList = document.getElementById('task-list');
+        const taskStatus = document.getElementById('task-status');
+        const statTotal = document.getElementById('stat-total');
+        const statOpen = document.getElementById('stat-open');
+        const statDone = document.getElementById('stat-done');
+
+        if (!token && !initialTasks.length) {
+            welcomeTitle.textContent = 'Sign in required';
+            taskStatus.textContent = 'Please sign in to view your tasks.';
+        } else {
+            welcomeTitle.textContent = username ? `Hello, ${username}` : 'Dashboard';
+        }
+
+        function headers() {
+            return {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            };
+        }
+
+        function decodeUsernameFromToken(jwtToken) {
+            try {
+                const payload = jwtToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+                const json = atob(payload.padEnd(payload.length + (4 - payload.length % 4) % 4, '='));
+                return JSON.parse(json).username;
+            } catch {
+                return null;
+            }
+        }
+
+        async function loadTasks() {
+            if (!token) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/gettask', { headers: headers() });
+                const data = await response.json();
+
+                if (response.status === 401) {
+                    sessionStorage.removeItem('JWT_TOKEN');
+                    sessionStorage.removeItem('TASKUP_USERNAME');
+                    window.location.href = '/signin';
+                    return;
+                }
+
+                const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+                renderTasks(tasks);
+            } catch (error) {
+                taskStatus.textContent = 'Unable to load tasks.';
+                taskList.innerHTML = `<div class="empty-state"><p>${error.message || 'Something went wrong.'}</p></div>`;
+            }
+        }
+
+        function renderTasks(tasks) {
+            statTotal.textContent = tasks.length;
+            statOpen.textContent = tasks.filter((task) => !task.completed).length;
+            statDone.textContent = tasks.filter((task) => task.completed).length;
+
+            if (!tasks.length) {
+                taskStatus.textContent = 'No tasks yet.';
+                taskList.innerHTML = '<div class="empty-state"><p>Your task board is empty. Add your first task to get started.</p></div>';
+                return;
+            }
+
+            taskStatus.textContent = 'Tasks loaded successfully.';
+            taskList.innerHTML = tasks.map((task) => `
+                <article class="task-card ${task.completed ? 'task-done' : ''}">
+                    <div class="task-card-head">
+                        <div>
+                            <p class="task-badge">${task.completed ? 'Completed' : 'Open'}</p>
+                            <h3>${escapeHtml(task.title || 'Untitled task')}</h3>
+                        </div>
+                        <span class="task-date">${formatDate(task.createdat)}</span>
+                    </div>
+                    <p class="task-description">${escapeHtml(task.description || '')}</p>
+                    <div class="button-row">
+                        <button type="button" class="button button-secondary" onclick="markTask('${task.id}')">Mark done</button>
+                        <button type="button" class="button button-secondary" onclick="editTask('${task.id}')">Edit</button>
+                        <button type="button" class="button button-danger" onclick="deleteTask('${task.id}')">Delete</button>
+                        <button type="button" class="button button-secondary" onclick="emailTask('${task.id}')">Email</button>
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
+        function formatDate(value) {
+            if (!value) return 'Just now';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return 'Just now';
+            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        document.getElementById('task-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!token) {
+                window.location.href = '/signin';
+                return;
+            }
+
+            const title = document.getElementById('task-title').value.trim();
+            const description = document.getElementById('task-description').value.trim();
+
+            if (!title || !description) {
+                alert('Task title and description are required.');
+                return;
+            }
+
+            const response = await fetch('/addtask', {
+                method: 'POST',
+                headers: headers(),
+                body: JSON.stringify({ title, description })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                alert(data.message || 'Unable to add task.');
+                return;
+            }
+
+            event.target.reset();
+            loadTasks();
+        });
+
+        document.getElementById('refresh-button').addEventListener('click', loadTasks);
+        document.getElementById('logout-button').addEventListener('click', () => {
+            sessionStorage.removeItem('JWT_TOKEN');
+            sessionStorage.removeItem('TASKUP_USERNAME');
+            document.cookie = 'TASKUP_TOKEN=; Max-Age=0; path=/; SameSite=Lax';
+            document.cookie = 'TASKUP_USERNAME=; Max-Age=0; path=/; SameSite=Lax';
+            window.location.href = '/signin';
+        });
+
+        window.markTask = async function markTask(id) {
+            const response = await fetch(`/mark/${id}`, {
+                method: 'POST',
+                headers: headers()
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                alert(data.message || 'Unable to update task.');
+                return;
+            }
+            loadTasks();
+        };
+
+        window.deleteTask = async function deleteTask(id) {
+            const response = await fetch(`/deletetask/${id}`, {
+                method: 'POST',
+                headers: headers()
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                alert(data.message || 'Unable to delete task.');
+                return;
+            }
+            loadTasks();
+        };
+
+        window.editTask = async function editTask(id) {
+            const title = prompt('Update the task title:');
+            if (title === null) return;
+            const description = prompt('Update the task description:');
+            if (description === null) return;
+
+            const response = await fetch(`/edit/${id}`, {
+                method: 'POST',
+                headers: headers(),
+                body: JSON.stringify({ title: title.trim(), description: description.trim() })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                alert(data.message || 'Unable to update task.');
+                return;
+            }
+            loadTasks();
+        };
+
+        window.emailTask = async function emailTask(id) {
+            const recipient = prompt('Enter recipient email:');
+            if (!recipient) return;
+
+            const response = await fetch(`/email/${id}`, {
+                method: 'POST',
+                headers: headers(),
+                body: JSON.stringify({ recipient: recipient.trim() })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                alert(data.message || 'Unable to send task email.');
+                return;
+            }
+            alert(data.message || 'Email sent.');
+        };
+
+        if (token) {
+            sessionStorage.setItem('JWT_TOKEN', token);
+            const derivedUsername = username || decodeUsernameFromToken(token);
+            if (derivedUsername) {
+                sessionStorage.setItem('TASKUP_USERNAME', derivedUsername);
+                welcomeTitle.textContent = `Hello, ${derivedUsername}`;
+            }
+            loadTasks();
+        } else if (initialTasks.length) {
+            renderTasks(initialTasks);
+        }
+    </script>
+</body>
+</html>

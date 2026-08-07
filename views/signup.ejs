@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up | TaskUp</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <main class="shell auth-shell">
+        <section class="auth-card">
+            <p class="eyebrow">TaskUp</p>
+            <h1>Create your account.</h1>
+            <p class="hero-copy">Start with a clean dashboard and keep your work in one place.</p>
+            <form id="signup-form" class="stack-form">
+                <label>
+                    <span>Username</span>
+                    <input type="text" id="username" autocomplete="username" placeholder="Choose a username">
+                </label>
+                <label>
+                    <span>Email</span>
+                    <input type="email" id="email" autocomplete="email" placeholder="name@example.com">
+                </label>
+                <label>
+                    <span>Password</span>
+                    <input type="password" id="password" autocomplete="new-password" placeholder="Create a password">
+                </label>
+                <label>
+                    <span>Confirm Password</span>
+                    <input type="password" id="confirmedp" autocomplete="new-password" placeholder="Repeat your password">
+                </label>
+                <button type="submit" class="button button-primary full-width">Create account</button>
+            </form>
+            <p class="muted-copy">Already have an account? <a href="/signin">Sign in</a></p>
+        </section>
+    </main>
+
+    <script>
+        document.getElementById('signup-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmedp = document.getElementById('confirmedp').value;
+
+            if (!username || !email || !password) {
+                alert('Username, email, and password are required.');
+                return;
+            }
+
+            if (password !== confirmedp) {
+                alert('Passwords must match.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, email })
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message || 'Unable to create account');
+                }
+
+                sessionStorage.setItem('JWT_TOKEN', data.token);
+                sessionStorage.setItem('TASKUP_USERNAME', data.username || username);
+                document.cookie = `TASKUP_TOKEN=${encodeURIComponent(data.token)}; path=/; SameSite=Lax`;
+                document.cookie = `TASKUP_USERNAME=${encodeURIComponent(data.username || username)}; path=/; SameSite=Lax`;
+                window.location.href = '/dashboard';
+            } catch (error) {
+                alert(error.message || 'Unable to connect to the server.');
+            }
+        });
+    </script>
+</body>
+</html>
