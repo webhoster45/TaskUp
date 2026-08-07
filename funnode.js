@@ -1,74 +1,47 @@
-const express=require('express');
-const app=express();
-const fs=require('fs');
-const jwt=require('jsonwebtoken')
-const fspromises=require('fs').promises;
-const path=require('path');
-const PORT=3000;
+const path = require('path');
+const fs = require('fs');
+const fspromises = require('fs').promises;
 
-
-app.use(express.json());
-app.use(express.urlencoded({extended:true}));
-app.use(express.static('./public'))
-
-async function reader(filename){
-try {
-    const mrfile=path.join(__dirname,'views',filename)
-    if(fs.existsSync(mrfile)){
-        const data=await fspromises.readFile(mrfile,'utf8');
-        if(mrfile.endsWith('.json')){
-            return JSON.parse(data)
-        } 
-        else{
-            return data
+async function reader(filename) {
+    try {
+        const mrfile = path.join(__dirname, 'data', filename);
+        if (fs.existsSync(mrfile)) {
+            const data = await fspromises.readFile(mrfile, 'utf8');
+            if (mrfile.endsWith('.json')) {
+                return JSON.parse(data);
+            } else {
+                return data;
+            }
+        } else {
+            // FIX: Write an empty array string '[]' instead of a live array object []
+            await fspromises.writeFile(mrfile, '[]');
+            return []; // FIX: Return the empty array so the writer can use it immediately
         }
-
+    } catch (error) {
+        console.log(error);
     }
-    else{
-        return "OOOOPS😒"
-    }
-} catch (error) {
-    console.log(error)
 }
-};
+
+async function writer(content, filename) {
+    try {
+        let filefamily = await reader(filename);
+        const mrfile = path.join(__dirname, 'data', filename);
+        
+        // FIX: Ensure filefamily is treated as an array if the file was empty/just created
+        if (!Array.isArray(filefamily)) {
+            filefamily = [];
+        }
+        
+        filefamily.push(content); // Modifies the array in place
+
+        // FIX: Convert the array to a string using JSON.stringify before writing
+        await fspromises.writeFile(mrfile, JSON.stringify(filefamily, null, 2), 'utf8');
+        console.log("Data successfully written!");
+    } catch (error) {
+        console.log(error);
+    }
+}
 
 
-
-// const yah=async ()=>{
-//     const result=await reader('me.json');
-//     console.log(result)
-
-// }
-
-// yah()
-
-app.get('/',(req,res)=>{
-    
-    res.sendFile(path.join(__dirname,'views','index.html'))
-});
-
-app.get('/signup',(req,res)=>{
-res.sendFile(path.join(__dirname,'views','signup.html'))
-})
-
-app.get('/signin',(req,res)=>{
-res.sendFile(path.join(__dirname,'views','signin.html'))
-})
-
-app.post('/addtask',async (req,res)=>{
-    const result=await reader('me.json');
-    console.log(result)
-})
-
-app.post('/health',(req,res)=>{
-    res.status(200).json({message:"Working"})
-})
-
-app.use((req,res)=>{
-    return res.status(404).json({message:"Page doesn't exist"})
-})
-
-app.listen(PORT,()=>{
-    console.log(`App listening on PORT: ${PORT}`)
-});
-
+writer({ username: "kettle" }, 'me.json');
+writer({ username: "olawale" }, 'me.json');

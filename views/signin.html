@@ -3,51 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Signin page</title>
+    <title>Login page</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-    <div id="container"><br>
-         <center><h3>Login in to <span> TaskUp</span>
+<form id="signup-form">
+        <div id="container"><br>
+         <center><h3>Login to<span> TaskUp</span>
          </h3></center><br>
         <label for="name">Name:</label>
         <input type="text" id="username"><br><br>
         <label for="password">Password :</label>
-        <input type="text" id="password"><br><br>
-        <label for="confirmpassword">Confirm Password :</label>
-        <input type="text" id="confirmedp"><br><br>
-        <label for="email">Email : </label>
-        <input type="email" id="email"><br><br>
-        <center><button type="submit" onclick="submit()" id="submitbutton">Submit</button></center>
+        <input type="password" id="password"><br><br>
+        <center><button type="submit" id="submitbutton">Login!</button></center>
 <br>
-        <center><p id="next"> New to Taskup? <a href="/signup">Sign Up</a></p></center>
+        <center><p id="next"> New to TaskUp? <a href="/signup">Sign Up</a></p></center>
     </div>
+</form>
     <script>
 
-        // const submitb=document.getElementById("submit").value;
 
-        async function submit(){
-        const username=document.getElementById('username').value;
-        const password=document.getElementById('password').value;
-        const confirmedp=document.getElementById('confirmedp').value;
-            console.log(password,username,confirmedp)
-            if(!username && !password){
+            document.getElementById('signup-form').addEventListener('submit',async function (event) {
+
+                try{
+                    
+            event.preventDefault();
+            const username=document.getElementById('username').value.trim();
+            const password=document.getElementById('password').value;
+
+            if(!username || !password){
                 alert("Username and password must exist");
-            }
-            else if(password!=confirmedp) {
-                alert('Passwords Must Match');
-                return console.log("Password must match") 
+                return;
             }
             else{
             //  console.log(username);
             //  console.log(password);
-            const url='localhost:3000/signup';
-            const reponse=await fetch(url);
-             
+            const url='http://localhost:3000/signin';
+            const response=await fetch(url,{ method: 'POST',headers:{ 'Content-Type':'application/json' },body:JSON.stringify({username:username,password:password})});
+            
+            if(!response.ok){
+                const errordata=await response.json();
+                throw new Error(errordata.message||'Server Error during Login');
+
+
             }
-        }
-        
+            const data=await response.json();
+            sessionStorage.setItem('JWT_TOKEN',data.token);
+            alert(data.message);
+            console.log('Server response payload:',data)
+
+            }
+                } catch (error) {
+    console.log('Signup faild:',error);
+    alert(error.message || "can't connnect to server")
+};
+
+
+        })
+
+
     </script>
 </body>
 </html>
