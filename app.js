@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const ejs = require('ejs');
 const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
@@ -15,6 +16,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const resendClient = process.env.resend_api_key ? new Resend(process.env.resend_api_key) : null;
 let mongoConnection;
 
+app.engine('ejs', ejs.__express);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
