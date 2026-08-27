@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
 const { Resend } = require('resend');
 
@@ -12,6 +13,7 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'taskup-development-secret';
 const DATA_DIR = path.join(__dirname, 'data');
 const resendClient = process.env.resend_api_key ? new Resend(process.env.resend_api_key) : null;
+let mongoConnection;
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -80,6 +82,12 @@ function formatDate(value) {
 }
 
 async function readCollection(filename) {
+    if (process.env.MONGODB_URI) {
+        const collection = await getMongoCollection(filename);
+        const documents = await collection.find({}).toArray();
+        return documents.map(({ _id, ...document }) => document);
+    }
+
     const filePath = path.join(DATA_DIR, filename);
 
     try {
@@ -102,9 +110,31 @@ async function readCollection(filename) {
 }
 
 async function writeCollection(filename, collection) {
+    if (process.env.MONGODB_URI) {
+        const mongoCollection = await getMongoCollection(filename);
+        await mongoCollection.deleteMany({});
+        if (collection.length) {
+            await mongoCollection.insertMany(collection);
+        }
+        return;
+    }
+
     const filePath = path.join(DATA_DIR, filename);
     await fs.promises.mkdir(DATA_DIR, { recursive: true });
     await fs.promises.writeFile(filePath, JSON.stringify(collection, null, 2), 'utf8');
+}
+
+async function getMongoCollection(filename) {
+    if (!mongoConnection) {
+        mongoConnection = mongoose.connect(process.env.MONGODB_URI, {
+            serverSelectionTimeoutMS: 5000,
+            maxPoolSize: 10
+        });
+    }
+
+    const connection = await mongoConnection;
+    const collectionName = path.basename(filename, path.extname(filename));
+    return connection.connection.db.collection(collectionName);
 }
 
 function signToken(username) {
@@ -360,7 +390,11 @@ app.use((req, res) => {
     return res.status(404).json({ message: "Page doesn't exist" });
 });
 
-app.listen(PORT, () => {
-    console.log(`App listening on PORT: ${PORT}`);
-});
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`App listening on PORT: ${PORT}`);
+    });
+}
+
+module.exports = app;
 

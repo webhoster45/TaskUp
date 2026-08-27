@@ -9,7 +9,11 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
+    "netlify:dev": "netlify dev",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "axios": "^1.19.0",
@@ -22,6 +26,7 @@
     "mongoose": "^9.7.0",
     "nodemailer": "^9.0.5",
     "resend": "^6.18.1",
+    "serverless-http": "^4.0.0",
     "uuid": "^14.0.1"
   }
 }
