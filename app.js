@@ -12,7 +12,7 @@ const { Resend } = require('resend');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'taskup-development-secret';
-const PROJECT_DIR = process.env.NETLIFY ? process.cwd() : __dirname;
+const PROJECT_DIR = process.cwd();
 const DATA_DIR = path.join(PROJECT_DIR, 'data');
 const resendClient = process.env.resend_api_key ? new Resend(process.env.resend_api_key) : null;
 let mongoConnection;
