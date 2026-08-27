@@ -12,17 +12,18 @@ const { Resend } = require('resend');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'taskup-development-secret';
-const DATA_DIR = path.join(__dirname, 'data');
+const PROJECT_DIR = process.env.NETLIFY ? process.cwd() : __dirname;
+const DATA_DIR = path.join(PROJECT_DIR, 'data');
 const resendClient = process.env.resend_api_key ? new Resend(process.env.resend_api_key) : null;
 let mongoConnection;
 
 app.engine('ejs', ejs.__express);
 app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
+app.set('views', path.join(PROJECT_DIR, 'views'));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(PROJECT_DIR, 'public')));
 
 function authmiddleware(req, res, next) {
     const token = extractToken(req);
